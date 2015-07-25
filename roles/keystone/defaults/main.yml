@@ -1,0 +1,28 @@
+---
+keystone:
+  babel_version: 1.3
+  token_expiration_in_seconds: 86400
+  admin_workers: 5
+  public_workers: 5
+
+  source:
+    rev: '8a7282bebd1ebfb92d9ccd87f85b8490a89da4e0'
+  package:
+    console_scripts:
+      - keystone-manage
+      - keystone-all
+
+  logs:
+    - paths:
+      - /var/log/keystone/keystone-all.log
+      fields:
+        type: openstack
+        tags: keystone,keystone-all
+    - paths:
+        - /var/log/keystone/keystone-manage.log
+      fields:
+        type: openstack
+        tags: keystone,keystone-manage
+  logging:
+    debug: False
+    verbose: True

@@ -1,0 +1,64 @@
+---
+glance:
+  api_workers: 5
+  registry_workers: 5
+  sync:
+    enabled: true
+    listening_port: 25307
+    download_limit: 0
+    upload_limit: 0
+    folder_rescan_interval: 600
+    storage_path: /var/lib/btsync
+    device_name: image-cache
+    dir: /var/lib/glance/images
+  store_swift: False
+  show_multiple_locations: True
+
+  source:
+    rev: '0e355462833feeaa6f3124fda4bd5ff7064c8512'
+  package:
+    console_scripts:
+      - glance-api
+      - glance-cache-cleaner
+      - glance-cache-manage
+      - glance-cache-prefetcher
+      - glance-cache-pruner
+      - glance-control
+      - glance-manage
+      - glance-registry
+      - glance-replicator
+      - glance-scrubber
+
+  package:
+    console_scripts:
+      - glance-api
+      - glance-cache-cleaner
+      - glance-cache-manage
+      - glance-cache-prefetcher
+      - glance-cache-pruner
+      - glance-control
+      - glance-manage
+      - glance-registry
+      - glance-replicator
+      - glance-scrubber
+
+  logs:
+    - paths:
+        - /var/log/glance/glance-api.log
+      fields:
+        type: openstack
+        tags: glance,glance-api
+    - paths:
+        - /var/log/glance/glance-manage.log
+      fields:
+        type: openstack
+        tags: glance,glance-manage
+    - paths:
+        - /var/log/glance/glance-registry.log
+      fields:
+        type: openstack
+        tags: glance,glance-registry
+  logging:
+    debug: False
+    verbose: True
+  cafile: "{{ ssl.cafile|default('/etc/ssl/certs/ca-certificates.crt') }}"

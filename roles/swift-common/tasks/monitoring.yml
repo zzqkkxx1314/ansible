@@ -1,0 +1,53 @@
+---
+- name: swift dispersion gate script
+  template: src=check-swift-dispersion.sh mode=0755 owner=root group=root
+            dest=/etc/sensu/plugins/check-swift-dispersion.sh
+
+- name: swift dispersion check
+  sensu_check: name=swift-dispersion plugin=check-swift-dispersion.sh
+               interval=600 occurrences=1 use_sudo=true
+
+- name: sensu account process checks
+  sensu_process_check: service={{ item }} warn_over=30 crit_over=35
+  with_items:
+    - swift-account-auditor
+    - swift-account-replicator
+    - swift-account-reaper
+    - swift-account-server
+
+- name: sensu container process checks
+  sensu_process_check: service={{ item }} warn_over=30 crit_over=35
+  with_items:
+    - swift-container-replicator
+    - swift-container-updater
+    - swift-container-auditor
+    - swift-container-sync
+    - swift-container-server
+
+- name: sensu object process checks
+  sensu_process_check: service={{ item }} warn_over=30 crit_over=35
+  with_items:
+    - swift-object-replicator
+    - swift-object-updater
+    - swift-object-server
+
+- name: sensu proxy process checks
+  sensu_process_check: service={{ item }}
+  with_items:
+    - swift-proxy
+    - haproxy
+    - memcached
+
+- name: sensu check for mounted drives
+  sensu_check: name=fstab-mounts plugin=check-fstab-mounts.rb args='-t xfs'
+               interval=60
+
+- name: ucarp failover alert
+  sensu_check: name=check-ucarp-failover plugin=check-log.rb use_sudo=true
+               auto_resolve=false interval=20 occurrences=1
+               args="-f /var/log/syslog -q 'ucarp.+[Ss]witching to state' --silent"
+  notify: restart sensu-client
+
+- name: ucarp processes check
+  sensu_check: name=check-ucarp-procs plugin=check-ucarp-procs.sh use_sudo=true
+  notify: restart sensu-client

@@ -1,0 +1,13 @@
+---
+monitoring:
+  checks:
+    memory:
+      warning: 4096
+      critical: 1024
+  graphite:
+    cluster_prefix: "stats.bbc.{{ stack_env }}.openstack"
+    host_prefix: "stats.bbc.{{ stack_env }}.{{ ansible_nodename }}"
+  rabbit:
+    vhost: /sensu
+    username: sensu
+    password: sensu

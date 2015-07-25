@@ -1,0 +1,12 @@
+---
+- name: Update dnsmasq to the ppa version
+  apt: pkg=dnsmasq state=latest
+
+- name: Configure dnsmasq
+  template: src=etc/dnsmasq.d/internal-ipv6-ra.conf
+            dest=/etc/dnsmasq.d/internal-ipv6-ra.conf owner=root group=root
+            mode=0644
+  notify: restart-dnsmasq
+
+- name: Enable/start dnsmasq
+  service: name=dnsmasq state=started enabled=yes

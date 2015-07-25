@@ -1,0 +1,81 @@
+---
+- name: Check if glance user exists
+  action: shell getent passwd glance
+  register: glance_user
+  failed_when: False
+  changed_when: False
+
+- name: glance user
+  user: name=glance shell=/bin/false createhome=no
+  when: glance_user|success
+
+- name: glance user
+  user: name=glance comment=glance shell=/bin/false system=yes home=/nonexistent createhome=no
+  when: glance_user|failed
+
+- name: /etc/glance
+  file: dest=/etc/glance state=directory
+
+- name: glance images dir
+  file: dest=/var/lib/glance/images state=directory owner=glance group=glance
+
+- name: glance cache dir
+  file: dest=/var/cache/glance state=directory mode=0700 owner=glance
+        group=glance
+
+- name: glance log dir
+  file: dest=/var/log/glance state=directory mode=0755 owner=glance group=glance
+
+- name: permit access to glance
+  ufw: rule=allow to_port={{ item }} proto=tcp
+  with_items:
+    - 9292
+    - 9293
+
+- name: install glance services
+  upstart_service: name={{ item }}
+                   user=glance
+                   cmd=/usr/local/bin/{{ item }}
+  with_items:
+    - glance-api
+    - glance-registry
+
+- name: glance config
+  template: src={{ item }} dest=/etc/glance mode=0644
+  with_fileglob: ../templates/etc/glance/*
+  notify:
+    - restart glance services
+
+- name: stop glance services before db sync
+  service: name={{ item }} state=stopped
+  with_items:
+    - glance-api
+    - glance-registry
+  when: database_create.changed or force_sync|default('false')|bool
+
+- name: sync glance database
+  command: glance-manage db_sync
+  when: database_create.changed or force_sync|default('false')|bool
+  run_once: true
+  changed_when: true
+  notify:
+    - restart glance services
+  # we want this to always be changed so that it can notify the service restart
+
+- meta: flush_handlers
+
+- name: start glance services
+  service: name={{ item }} state=started
+  with_items:
+    - glance-api
+    - glance-registry
+
+- include: image-sync.yml
+  when: glance.sync.enabled
+
+- include: monitoring.yml tags=monitoring,common
+
+- include: logging.yml
+  tags:
+    - logrotate
+    - logging

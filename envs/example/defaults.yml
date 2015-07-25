@@ -1,0 +1,407 @@
+---
+stack_env: example
+
+country_code: US
+
+#openstack_install_method: 'source'
+openstack_install_method: 'package'
+
+primary_interface: 'ansible_eth0'
+primary_ip: "{{ hostvars[inventory_hostname][primary_interface]['ipv4']['address'] }}"
+undercloud_cidr: 10.230.7.0/24
+
+secrets:
+  db_password:      asdf
+  service_password: asdf
+  rabbit_password:  asdf
+  admin_password:   asdf
+  provider_admin_password:      ghij
+  metadata_proxy_shared_secret: asdf
+  horizon_secret_key:           asdf
+  glance_sync:      ADQ64XUQLUWH75M634RVBLP55RKPGGOWG
+  monitor_password: asdf
+
+fqdn: hkg02kvm002ccz023
+floating_ip: "{{ controller_primary }}"
+undercloud_floating_ip: "{{ hostvars[groups['controller'][0]][primary_interface]['ipv4']['address'] }}"
+
+etc_hosts:
+  - name: "{{ fqdn }}"
+    ip: "{{ floating_ip }}"
+
+rabbitmq:
+  port: 5672
+  user: openstack
+  cluster: false
+
+memcached:
+  memory: 64
+  port: 11211
+  user: nobody
+  max_connections: 1024
+
+endpoints:
+  main:     "{{ fqdn }}"
+  db:       "{{ undercloud_floating_ip }}"
+  rabbit:   "{{ undercloud_floating_ip }}"
+  keystone: "{{ fqdn }}"
+  nova:     "{{ fqdn }}"
+  glance:   "{{ fqdn }}"
+  neutron:  "{{ fqdn }}"
+  vnc:      "{{ fqdn }}"
+  cinder:   "{{ fqdn }}"
+  cinderv2: "{{ fqdn }}"
+  heat:     "{{ fqdn }}"
+  heat-cfn: "{{ fqdn }}"
+  ironic: "{{ fqdn }}"
+  identity_uri: https://{{ fqdn }}:35358
+  auth_uri: https://{{ fqdn }}:5001/v2.0
+
+mysql:
+  root_password: asdf
+xtradb:
+  galera_version: 3.x
+  client_version: 5.6
+  server_version: 5.6
+  sst_auth_user: sst_admin
+  sst_auth_password: asdf
+
+# TODO(retr0h): Determine the best way to connect to a sensu server.
+# Currently, unable to test monitoring in a VM environment, without
+# changing the following to a valid sensu server.
+monitoring:
+  sensu_package_version: 0.12.5-1
+  rabbit:
+    host: "{{ undercloud_floating_ip }}"
+    port: 5672
+    user: openstack
+    pass: asdf
+  keepalive:
+    handler: email
+  scan_for_log_errors: true
+  openstack:
+    user:
+      username: monitor
+      password: "{{ secrets.monitor_password }}"
+      tenant: admin
+      role: admin
+
+openstack:
+  pypi_mirror: https://pypi.python.org/simple/
+  git_mirror:  https://github.com/openstack
+  git_update: yes
+
+client:
+  self_signed_cert: true
+
+nova:
+  libvirt_type: qemu
+  api_workers: 1
+  conductor_workers: 1
+  metadata_api_workers: 1
+  reserved_host_disk_mb: 50
+  enable_ssh: true
+  preallocate_images: none
+  logging:
+    debug: True
+    verbose: True
+
+cinder:
+  enabled: True
+  volume_type: file
+  volume_file: /opt/stack/cinder-volumes
+  volume_file_size: 5G
+  #fixed_key: 6a5c55db5e250f234b6af7807dafda77433dddcf372b6d04801a45f578a35aa7
+  logging:
+    debug: True
+    verbose: True
+  volume_types: []
+  encrypted_volume_types:
+    - volume_type: encrypted-aes-512
+      cipher: aes-xts-plain64
+      key_size: 512
+      provider: nova.volume.encryptors.luks.LuksEncryptor
+      control_location: front-end
+
+neutron:
+  plugin: ml2
+  bridge_mappings: ''
+  network_vlan_ranges: ''
+  tenant_network_type: gre
+  tunnel_types:
+    - gre
+  logging:
+    debug: True
+    verbose: True
+  networks:
+    - name: internal
+      shared: true
+      external: false
+      network_type: gre
+      segmentation_id: 256
+      provider_physical_network: ~
+    - name: external
+      shared: true
+      external: true
+      network_type: local
+      segmentation_id: ~
+      provider_physical_network: ~
+  subnets:
+    - name: internal_v4
+      network_name: internal
+      ip_version: 4
+      cidr: 172.16.255.0/24
+      enable_dhcp: "true"
+      gateway_ip: 172.16.255.1
+      dns_nameservers: '8.8.8.8,8.8.4.4'
+    - name: internal_v6
+      network_name: internal
+      ip_version: 6
+      cidr: 2db8:1::/64
+      enable_dhcp: "true"
+      gateway_ip: 2db8:1::1
+      ipv6_address_mode: dhcpv6-stateless
+      ipv6_ra_mode: dhcpv6-stateless
+      dns_nameservers: '2001:4860:4860::8888,2001:4860:4860::8844'
+    - name: external
+      network_name: external
+      ip_version: 4
+      cidr: 192.168.255.0/24
+      enable_dhcp: "false"
+      gateway_ip: 192.168.255.1
+      dns_nameservers: '8.8.8.8,8.8.4.4'
+  routers:
+    - name: default
+      tenant_name: admin
+  router_interfaces:
+    - router_name: default
+      subnet_name: internal_v4
+      tenant_name: admin
+    - router_name: default
+      subnet_name: internal_v6
+      tenant_name: admin
+  service:
+    envs:
+      - "REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt"
+  tenant_nameservers:
+    - 8.8.4.4
+    - 8.8.8.8
+
+glance:
+  api_workers: 1
+  registry_workers: 1
+  logging:
+    debug: True
+    verbose: True
+  images:
+    - name: cirros
+      url: http://download.cirros-cloud.net/0.3.3/cirros-0.3.3-x86_64-disk.img
+
+keystone:
+  token_expiration_in_seconds: 86400
+  logging:
+    debug: True
+    verbose: True
+  tenants:
+    - admin
+    - service
+    - demo
+  users:
+    - name: admin
+      password: "{{ secrets.admin_password }}"
+      tenant: admin
+    - name: provider_admin
+      password: "{{ secrets.provider_admin_password }}"
+      tenant: admin
+    - name: demo
+      password: demopass
+      tenant: demo
+    - name: nova
+      password: "{{ secrets.service_password }}"
+      tenant: service
+    - name: glance
+      password: "{{ secrets.service_password }}"
+      tenant: service
+    - name: neutron
+      password: "{{ secrets.service_password }}"
+      tenant: service
+    - name: cinder
+      password: "{{ secrets.service_password }}"
+      tenant: service
+    - name: heat
+      password: "{{ secrets.service_password }}"
+      tenant: service
+    - name: ironic
+      password: "{{ secrets.service_password }}"
+      tenant: service
+    - name: "{{ monitoring.openstack.user.username }}"
+      password: "{{ monitoring.openstack.user.password }}"
+      tenant: "{{ monitoring.openstack.user.tenant }}"
+  user_roles:
+    - user: admin
+      tenant: admin
+      role: admin
+    - user: admin
+      tenant: demo
+      role: admin
+    - user: provider_admin
+      tenant: admin
+      role: admin
+    - user: provider_admin
+      tenant: demo
+      role: admin
+    - user: nova
+      tenant: service
+      role: service
+    - user: glance
+      tenant: service
+      role: service
+    - user: neutron
+      tenant: service
+      role: service
+    - user: cinder
+      tenant: service
+      role: service
+    - user: neutron
+      tenant: service
+      role: admin
+    - user: heat
+      tenant: service
+      role: service
+    - user: ironic
+      tenant: service
+      role: service
+    - user: "{{ monitoring.openstack.user.username }}"
+      tenant: "{{ monitoring.openstack.user.tenant }}"
+      role: "{{ monitoring.openstack.user.role }}"
+
+  services:
+    - name: keystone
+      type: identity
+      description: 'Identity Service'
+      public_url: https://{{ endpoints.main }}:5001/v2.0
+      internal_url: https://{{ endpoints.main }}:5001/v2.0
+      admin_url: https://{{ endpoints.main }}:35358/v2.0
+    - name: keystonev3
+      type: identityv3
+      description: 'Identity Service v3'
+      public_url: https://{{ endpoints.main }}:5001/v3
+      internal_url: https://{{ endpoints.main }}:5001/v3
+      admin_url: https://{{ endpoints.main }}:35358/v3
+    - name: nova
+      type: compute
+      description: 'Compute Service'
+      public_url: https://{{ endpoints.main }}:8777/v2/%(tenant_id)s
+      internal_url: https://{{ endpoints.main }}:8777/v2/%(tenant_id)s
+      admin_url: https://{{ endpoints.main }}:8777/v2/%(tenant_id)s
+    - name: glance
+      type: image
+      description: 'Image Service'
+      public_url: https://{{ endpoints.main }}:9393
+      internal_url: https://{{ endpoints.main }}:9393
+      admin_url: https://{{ endpoints.main }}:9393
+    - name: neutron
+      type: network
+      description: 'Network Service'
+      public_url: https://{{ endpoints.main }}:9797
+      internal_url: https://{{ endpoints.main }}:9797
+      admin_url: https://{{ endpoints.main }}:9797
+    - name: cinder
+      type: volume
+      description: 'Volume Service'
+      public_url: https://{{ endpoints.main }}:8778/v1/%(tenant_id)s
+      internal_url: https://{{ endpoints.main }}:8778/v1/%(tenant_id)s
+      admin_url: https://{{ endpoints.main }}:8778/v1/%(tenant_id)s
+    - name: cinderv2
+      type: volumev2
+      description: 'Volume Service v2'
+      public_url: https://{{ endpoints.main }}:8778/v2/%(tenant_id)s
+      internal_url: https://{{ endpoints.main }}:8778/v2/%(tenant_id)s
+      admin_url: https://{{ endpoints.main }}:8778/v2/%(tenant_id)s
+    - name: heat
+      type: orchestration
+      description: 'Heat Orchestration API'
+      public_url: https://{{ endpoints.main }}:8005/v1/%(tenant_id)s
+      internal_url: https://{{ endpoints.main }}:8005/v1/%(tenant_id)s
+      admin_url: https://{{ endpoints.main }}:8005/v1/%(tenant_id)s
+    - name: heat-cfn
+      type: cloudformation
+      description: 'Heat CloudFormation API'
+      public_url: https://{{ endpoints.main }}:8001/v1
+      internal_url: https://{{ endpoints.main }}:8001/v1
+      admin_url: https://{{ endpoints.main }}:8001/v1
+    - name: ironic
+      type: baremetal
+      description: 'Ironic bare metal provisioning service'
+      public_url: https://{{ endpoints.main }}:6384
+      internal_url: https://{{ endpoints.main }}:6384
+      admin_url: https://{{ endpoints.main }}:6384
+
+ssl:
+  crt: |
+    -----BEGIN CERTIFICATE-----
+    MIICNTCCAZ4CCQDm9leGbczV0TANBgkqhkiG9w0BAQUFADBfMQswCQYDVQQGEwJV
+    UzELMAkGA1UECAwCQ0ExCzAJBgNVBAcMAkNBMQwwCgYDVQQKDANJQk0xDDAKBgNV
+    BAsMA0dUUzEaMBgGA1UEAwwRaGtnMDJrdm0wMDJjY3owMjMwHhcNMTUwNzI0MDkz
+    MjE0WhcNMTYwNzIzMDkzMjE0WjBfMQswCQYDVQQGEwJVUzELMAkGA1UECAwCQ0Ex
+    CzAJBgNVBAcMAkNBMQwwCgYDVQQKDANJQk0xDDAKBgNVBAsMA0dUUzEaMBgGA1UE
+    AwwRaGtnMDJrdm0wMDJjY3owMjMwgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJAoGB
+    AMc21eZkZtxbVZAItsJPvKZGKxAVqWwZEnFYh531KJxIt2ZVfE5Xz+31W8FpYvBN
+    IZdBhKGWGIWPBgSamT2zzW7HSY8e59kHJ1XR9rSxDvjtU9Z9PWXDUPQ1v2DwNDY9
+    MoSlEQhvt7JufndYtfeaDMQRVGAbY+wBexOS/IHBcKthAgMBAAEwDQYJKoZIhvcN
+    AQEFBQADgYEAtNu7dO0mObiJhvN7y+aM49aQGdUoPh1N7I+KHWwMjIeiVhJLZbze
+    6BCKtT/6KdUL8H637ERgX6ZRvGjppQ4OyrUWj8RETRYJD97xD5PtTgU/ks5+MnO5
+    hA0g9oZ8auf1H04KwuG2yblYmfmy1Ad2PvZMIi2b0G5tDgmXNnFM1/I=
+    -----END CERTIFICATE-----
+  key: |
+    -----BEGIN RSA PRIVATE KEY-----
+    MIICXgIBAAKBgQDHNtXmZGbcW1WQCLbCT7ymRisQFalsGRJxWIed9SicSLdmVXxO
+    V8/t9VvBaWLwTSGXQYShlhiFjwYEmpk9s81ux0mPHufZBydV0fa0sQ747VPWfT1l
+    w1D0Nb9g8DQ2PTKEpREIb7eybn53WLX3mgzEEVRgG2PsAXsTkvyBwXCrYQIDAQAB
+    AoGAfuoYa6cbQNePMyvaAwD5lpStapniTdPLRBq6i49cR/Sroq5jeyXGejsOMbIK
+    Lj11YP+El80f4ja0BsrXRc/+16xW/iNf/wSfOiIGGvfAaR5sDdbMkj6jpL8QnoAv
+    teZGd+35Ue90ttdcY+ScO85lzGKtlp1RS437DqPbwD7WWAECQQDtN/v6Fywni+5L
+    hAhC3l/3qd/prPbXVuApGuRNFyvi2ExisYt+TUpTClBKqpzgED5fxD100Afce4m2
+    4Rd+Wo3xAkEA1vyQxlpyRxFIazkOctQ6ZTl2PXbF3tgQmWM21PX1ReuSC5+ydBjk
+    uOOtAixQgfWv4ACzYkxq8U5vIiNWFgREcQJBAK9PDW/QijgbqJq0U6qfTsroButZ
+    gP65XGXkUs5KDovRj/nr/gv0MLZXy+iyV8cbGg2KKGTYjMa7oZW+ma8uWvECQQCT
+    ha4mnivqvl5OTVGv1BfaHAsZ9CWlW+hQCPe4PKq49wQ5e7Ut22MfyAORCS2ZcCjm
+    cjSl0EBWI3c5GrxY0UbRAkEA3VV97N37m24QyhhAx4jct8GHnNOwI3PLjcaMSrE4
+    uZX3cL3jnipZVbEBnFgd/T8aGQx7UF0S2jyRijqMBSqV7w==
+    -----END RSA PRIVATE KEY-----
+  # remove this line out if using a real CA supplied cert
+  cafile: /usr/local/share/ca-certificates/{{ endpoints.main }}.crt
+
+openstack_setup:
+  add_users: True
+  add_images: True
+  add_networks: True
+  add_cinder: True
+
+percona:
+  replication: True
+
+common:
+  ipmi:
+    enabled: false
+
+heat:
+  enabled: False
+  logging:
+    debug: True
+    verbose: True
+
+ironic:
+  enabled: False
+  logging:
+    debug: True
+    verbose: True
+
+docker:
+  enabled: False
+
+novadocker:
+  enabled: False
+
+haproxy:
+  enabled: True
