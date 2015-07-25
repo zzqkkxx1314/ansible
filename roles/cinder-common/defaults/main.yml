@@ -1,0 +1,59 @@
+---
+cinder:
+  enabled: True
+  enabled_backends:
+  default_backend:
+  backends: []
+  api_workers: 5
+
+  source:
+    rev: '7b1d7a31335bd8723551c9af5c270927ad830c3f'
+  package:
+    console_scripts:
+      - cinder-all
+      - cinder-api
+      - cinder-backup
+      - cinder-manage
+      - cinder-rootwrap
+      - cinder-rtstool
+      - cinder-scheduler
+      - cinder-volume
+      - cinder-volume-usage-audit
+
+  package:
+    console_scripts:
+      - cinder-all
+      - cinder-api
+      - cinder-backup
+      - cinder-manage
+      - cinder-rootwrap
+      - cinder-rtstool
+      - cinder-scheduler
+      - cinder-volume
+      - cinder-volume-usage-audit
+
+  logs:
+  - paths:
+      - /var/log/cinder/cinder-api.log
+    fields:
+      type: openstack
+      tags: cinder,cinder-api
+  - paths:
+      - /var/log/cinder/cinder-manage.log
+    fields:
+      type: openstack
+      tags: cinder,cinder-manage
+  - paths:
+      - /var/log/cinder/cinder-scheduler.log
+    fields:
+      type: openstack
+      tags: cinder,cinder-scheduler
+  - paths:
+      - /var/log/upstart/tgt.log
+    fields:
+      type: openstack
+      tags: cinder,tgt
+  logging:
+    debug: False
+    verbose: True
+  cafile: "{{ ssl.cafile|default('/etc/ssl/certs/ca-certificates.crt') }}"

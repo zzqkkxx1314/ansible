@@ -1,0 +1,8 @@
+---
+- name: restart cinder services
+  service: name={{ item }} state=restarted must_exist=false
+  when: restart|default('True')
+  with_items:
+    - cinder-api
+    - cinder-scheduler
+    - cinder-volume

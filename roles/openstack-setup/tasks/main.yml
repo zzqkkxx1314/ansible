@@ -1,0 +1,8 @@
+---
+- include: users.yml
+  when: openstack_setup.add_users|bool or openstack_setup.add_users is undefined
+
+- include: images.yml
+  when: openstack_setup.add_images|bool or openstack_setup.add_images is undefined
+
+- include: flavors.yml

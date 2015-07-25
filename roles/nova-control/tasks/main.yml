@@ -1,0 +1,53 @@
+---
+- name: install nova controller services
+  upstart_service: name={{ item }} user=nova
+                   cmd=/usr/local/bin/{{ item }}
+                   config_dirs=/etc/nova
+  with_items:
+    - nova-api
+    - nova-cert
+    - nova-conductor
+    - nova-consoleauth
+    - nova-scheduler
+
+- name: install nova-quota-sync script
+  copy: src=nova-quota-sync
+        dest=/usr/local/sbin/nova-quota-sync
+        mode=0755
+        owner=root
+
+- name: stop nova services before db sync
+  service: name={{ item }} state=stopped
+  with_items:
+    - nova-api
+    - nova-cert
+    - nova-conductor
+    - nova-consoleauth
+    - nova-scheduler
+  when: database_create.changed or force_sync|default('false')|bool
+
+- name: sync nova database
+  command: nova-manage db sync
+  when: database_create.changed or force_sync|default('false')|bool
+  run_once: true
+  changed_when: true
+  notify: restart nova services
+  # we want this to always be changed so that it can notify the service restart
+
+- meta: flush_handlers
+
+- name: start nova controller services
+  service: name={{ item }} state=started
+  with_items:
+    - nova-api
+    - nova-cert
+    - nova-conductor
+    - nova-consoleauth
+    - nova-scheduler
+
+- name: permit access to nova api
+  ufw: rule=allow to_port=8777 proto=tcp
+
+- include: novnc.yml tags=novnc
+
+- include: monitoring.yml tags=monitoring,common

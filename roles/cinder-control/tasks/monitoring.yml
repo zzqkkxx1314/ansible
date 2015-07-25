@@ -1,0 +1,22 @@
+---
+- name: cinder-api process check
+  sensu_process_check: service=cinder-api
+  notify: restart sensu-client
+
+- name: cinder-scheduler process check
+  sensu_process_check: service=cinder-scheduler
+  notify: restart sensu-client
+
+- name: cinder services check
+  sensu_check: name=check-cinder-services plugin=check-cinder-services.sh
+               use_sudo=true
+  notify: restart sensu-client
+
+- include: nimble-monitoring.yml
+  when: sensu.nimble_san_ip is defined
+
+- name: cinder metrics
+  template: src=etc/collectd/plugins/cinder.conf dest=/etc/collectd/plugins/cinder.conf
+  notify: restart collectd
+  when: collectd is defined and collectd.enabled|bool
+  tags: collectd

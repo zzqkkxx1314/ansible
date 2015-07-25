@@ -1,0 +1,3 @@
+---
+- name: install python-pycurl
+  apt: pkg=python-pycurl

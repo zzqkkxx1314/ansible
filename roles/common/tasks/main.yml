@@ -1,0 +1,96 @@
+---
+- name: set hostname
+  hostname: name={{ hostname }}
+  when: hostname is defined
+
+- name: ubuntu apt source list
+  template: src=etc/apt/sources.list dest=/etc/apt/sources.list
+  when: apt.ubuntu_mirror is defined
+
+- include: proxy.yml
+
+- name: update apt index
+  apt: update_cache=yes cache_valid_time=3600
+  tags: ['prereboot']
+
+- include: system-tools.yml
+
+- name: python dependencies
+  apt: pkg={{ item }}
+  with_items:
+    - python-pip
+    - python-libxml2
+    - python-lxml
+    - python-greenlet
+    - python-openssl
+    - python2.7-dev
+    - python-httplib2
+    - python-software-properties
+    - python-virtualenv
+    - python-mysqldb
+    - python-jinja2
+    - cryptsetup
+    - libffi-dev
+    - libssl-dev
+    - libxml2-dev
+    - libxslt1-dev
+
+- include: pip.yml
+  tags: pip
+
+- name: set UTC timezone
+  template: src=etc/timezone dest=/etc/timezone owner=root group=root mode=0644
+  notify:
+    - update timezone
+
+- name: /opt/stack
+  file: dest=/opt/stack state=directory
+
+- include: python.yml
+
+- include: ssl.yml tags=ssl
+
+- include: ssh.yml
+
+- include: networking.yml
+
+- include: ufw.yml
+
+- include: ntp.yml
+
+# Include serial console before kernel-tuning to build serial_console_cmdline
+- include: serial-console.yml tty=ttyS0
+  tags: ['prereboot']
+
+- include: ipmi.yml
+  when: common.ipmi.enabled
+  tags: ['prereboot']
+
+- include: kernel-tuning.yml
+  tags: ['prereboot']
+
+- include: disable-swap.yml
+
+- include: hwraid.yml
+  when: common.hwraid.enabled
+  tags: hwraid
+
+
+- name: fetch Ursula revision
+  local_action: command git describe --tags
+  run_once: true
+  sudo: no
+  register: ursula_git_describe
+
+- name: store Ursula revision
+  set_fact: ursula_revision={{ ursula_git_describe.stdout }}
+
+# run this last so we only update if run was successful
+- name: drop an motd with ursula metadata
+  action: template src=etc/motd.tail dest=/etc/motd.tail mode=0644
+  changed_when: False
+
+- name: include stack name in /etc/issue
+  lineinfile: dest=/etc/issue regexp="^{{ stack_env }} OpenStack Node" line="{{ stack_env }} OpenStack Node"
+
+- include: monitoring.yml tags=monitoring,common

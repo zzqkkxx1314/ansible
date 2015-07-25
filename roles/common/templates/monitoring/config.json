@@ -1,0 +1,27 @@
+{
+  "client": {
+    "name": "{{ inventory_hostname }}-{{ stack_env }}",
+    "address": "{{ primary_ip }}",
+    "subscriptions": [
+      "openstack"
+    ],
+    "keepalive": {
+      "handler": "{{ monitoring.keepalive.handler }}"
+    }
+  },
+  "rabbitmq": {
+    "host": "{{ monitoring.rabbit.host }}",
+    "port": {{ monitoring.rabbit.port }},
+    "user": "{{ monitoring.rabbit.user }}",
+    "password": "{{ monitoring.rabbit.pass }}",
+    {% if monitoring.client_cert is defined and monitoring.client_key is defined %}
+    "vhost": "{{ monitoring.rabbit.vhost }}",
+    "ssl": {
+      "cert_chain_file": "/etc/sensu/ssl/cert.pem",
+      "private_key_file": "/etc/sensu/ssl/key.pem"
+    }
+    {% else %}
+    "vhost": "{{ monitoring.rabbit.vhost }}"
+    {% endif %}
+  }
+}

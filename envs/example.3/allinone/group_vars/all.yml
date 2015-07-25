@@ -1,0 +1,12 @@
+---
+stack_env: example_allinone
+floating_ip: 10.110.8.133
+
+xtradb:
+  sst_auth_password: asdf
+
+percona:
+  replication: False
+
+heat:
+ enabled: true

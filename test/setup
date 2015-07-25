@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+# if in jenkins, make the venv from the workspace and build ID
+# to allow concurrent runs.
+if [[ "$CI" == "jenkins" ]]; then
+    VENV=$WORKSPACE/venv
+    virtualenv $VENV
+    source $VENV/bin/activate
+    pip install -U -r requirements.txt
+fi
+
+source $(dirname $0)/common
+
+${ROOT}/test/check-deps
+
+echo "writing initial inventory file"
+mkdir -p ${ROOT}/envs/test
+cat > ${ROOT}/envs/test/hosts <<eof
+[local]
+# Tell ansible to use the python in PATH instead of /usr/bin/python
+localhost ansible_python_interpreter=python ansible_connection=local
+eof
+cp ${ROOT}/envs/example/defaults.yml ${ROOT}/envs/test/defaults.yml
+
+echo "testenv_instance_prefix: ${testenv_instance_prefix}" >> ${ROOT}/envs/test/defaults.yml
+
+echo "destroying: ${VMS}"
+${ROOT}/test/cleanup
+
+echo "booting ${VMS}"
+ursula "envs/test" ${ROOT}/playbooks/${TEST_ENV}/tasks/create.yml
+
+echo "building config"
+CONTROLLER_IP=$(private_ip ${testenv_instance_prefix}-controller-0)
+rm -rf ${ROOT}/envs/test/group_vars/
+rm -f ${ROOT}/envs/test/hosts
+mkdir -p ${ROOT}/envs/test/group_vars
+cp ${ROOT}/envs/example/defaults.yml ${ROOT}/envs/test/defaults.yml
+cp -r ${ROOT}/envs/example/ci/* ${ROOT}/envs/test
+echo "---" > ${ROOT}/envs/test/group_vars/all.yml
+echo "testenv_instance_prefix: ${testenv_instance_prefix}" >> ${ROOT}/envs/test/group_vars/all.yml
+
+echo "generating ssl cert for openstack.example.com"
+CERT_DIR=$(mktemp -d 2> /dev/null || mktemp -d -t 'setup')
+pushd ${CERT_DIR}
+${ROOT}/test/gen-cert openstack.example.com
+cat >> ${ROOT}/envs/test/group_vars/all.yml <<eof
+ssl:
+  crt: |
+eof
+cat ${CERT_DIR}/openstack.example.com.crt | sed 's/^/    /' >> ${ROOT}/envs/test/group_vars/all.yml
+cat >> ${ROOT}/envs/test/group_vars/all.yml <<eof
+  key: |
+eof
+cat ${CERT_DIR}/openstack.example.com.key | sed 's/^/    /' >> ${ROOT}/envs/test/group_vars/all.yml
+cat >> ${ROOT}/envs/test/defaults.yml <<eof
+logging:
+  follow:
+    global_fields:
+      cluster_name: "ci-test"
+  forward:
+    host: kibana.sea03.blueboxgrid.com
+    port: 4560
+eof
+popd
+rm -rf ${CERT_DIR}
+
+echo "writing inventory file"
+if [[ ${TEST_ENV} == "ci-full" ]]; then
+  CONTROLLER_IP=$(private_ip ${testenv_instance_prefix}-controller-0)
+  cat > ${ROOT}/envs/test/hosts <<eof
+[db]
+$(public_ip "${testenv_instance_prefix}-controller-0")
+$(public_ip "${testenv_instance_prefix}-controller-1")
+
+[db_arbiter]
+$(public_ip "${testenv_instance_prefix}-compute-0")
+
+[controller]
+$(public_ip "${testenv_instance_prefix}-controller-0")
+$(public_ip "${testenv_instance_prefix}-controller-1")
+
+[compute]
+$(public_ip "${testenv_instance_prefix}-compute-0")
+$(public_ip "${testenv_instance_prefix}-controller-0")
+$(public_ip "${testenv_instance_prefix}-controller-1")
+
+[network]
+$(public_ip "${testenv_instance_prefix}-controller-0")
+$(public_ip "${testenv_instance_prefix}-controller-1")
+
+[cinder_volume]
+$(public_ip "${testenv_instance_prefix}-compute-0")
+eof
+else
+  CONTROLLER_IP=$(private_ip ${testenv_instance_prefix}-allinone)
+  cat > ${ROOT}/envs/test/hosts <<eof
+[db]
+$(public_ip "${testenv_instance_prefix}-allinone")
+
+[db_arbiter]
+$(public_ip "${testenv_instance_prefix}-allinone")
+
+[controller]
+$(public_ip "${testenv_instance_prefix}-allinone")
+
+[compute]
+$(public_ip "${testenv_instance_prefix}-allinone")
+
+[network]
+$(public_ip "${testenv_instance_prefix}-allinone")
+
+[cinder_volume]
+$(public_ip "${testenv_instance_prefix}-allinone")
+eof
+fi
+
+echo "controller_primary: ${CONTROLLER_IP}" >> ${ROOT}/envs/test/group_vars/all.yml
+
+echo "copying files"
+ursula "envs/test" ${ROOT}/playbooks/${TEST_ENV}/tasks/pre-deploy.yml -u ${LOGIN_USER} --sudo
+
+ring_bell
+echo "vms are up: ${VMS} !!"

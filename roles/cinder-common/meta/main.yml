@@ -1,0 +1,16 @@
+---
+dependencies:
+  - role: monitoring-common
+  - role: logging-config
+    service: cinder
+    logdata: "{{ cinder.logs }}"
+  - role: openstack-source
+    project_name: cinder
+    project_rev: "{{ cinder.source.rev }}"
+    rootwrap: True
+    when: openstack_install_method == 'source'
+  - role: openstack-package
+    project_name: cinder
+    rootwrap: True
+    package_alternatives: "{{ cinder.package.console_scripts }}"
+    when: openstack_install_method == 'package'

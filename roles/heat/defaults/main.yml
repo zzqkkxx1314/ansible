@@ -1,0 +1,37 @@
+---
+heat:
+  enabled: False
+
+  source:
+    rev: 'cbef40647e35cc065e36ee86b4ca1305676f4c1b'
+  package:
+    console_scripts:
+      - heat-api
+      - heat-api-cfn
+      - heat-api-cloudwatch
+      - heat-db-setup
+      - heat-engine
+      - heat-keystone-setup
+      - heat-keystone-setup-domain
+      - heat-manage
+
+  logs:
+    - paths:
+        - /var/log/heat/heat-api.log
+      fields:
+        type: openstack
+        tags: heat,heat-api
+    - paths:
+        - /var/log/heat/heat-engine.log
+      fields:
+        type: openstack
+        tags: heat,heat-engine
+    - paths:
+        - /var/log/heat/heat-manage.log
+      fields:
+        type: openstack
+        tags: heat,heat-manage
+  logging:
+    debug: False
+    verbose: True
+  cafile: "{{ ssl.cafile|default('/etc/ssl/certs/ca-certificates.crt') }}"

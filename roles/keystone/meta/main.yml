@@ -1,0 +1,19 @@
+---
+dependencies:
+  - role: monitoring-common
+  - role: logging-config
+    service: keystone
+    logdata: "{{ keystone.logs }}"
+  - role: openstack-source
+    project_name: keystone
+    project_rev: "{{ keystone.source.rev }}"
+    # is this even required anymore with Juno?
+    python_requirements:
+      - { name: babel, version: "{{ keystone.babel_version }}" }
+    when: openstack_install_method == 'source'
+  - role: openstack-package
+    project_name: keystone
+    package_alternatives: "{{ keystone.package.console_scripts }}"
+    when: openstack_install_method == 'package'
+  - role: collectd-plugin
+    when: collectd is defined and collectd.enabled|bool

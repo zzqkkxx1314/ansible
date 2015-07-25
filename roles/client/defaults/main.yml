@@ -1,0 +1,13 @@
+---
+client:
+  self_signed_cert: false
+  names:
+    - python-keystoneclient
+    - python-glanceclient
+    - python-novaclient
+    - python-neutronclient
+    - python-cinderclient==1.1.1
+    - python-heatclient
+    - python-ironicclient
+    - python-swiftclient
+
